@@ -46,6 +46,10 @@ di = [
 [project.entry-points."xtr_dependency_injection.bundles"]
 rate_limiter = "xtr_rate_limiter.bundle:RateLimiterBundle"
 
+# Advertises the recipe — what *Use in an application* takes — for recipes:sync.
+[project.entry-points."xtr_recipes"]
+rate_limiter = "xtr_rate_limiter.recipe"
+
 [dependency-groups]
 dev = [
     "basedpyright>=1.21",

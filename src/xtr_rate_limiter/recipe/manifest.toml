@@ -1,0 +1,24 @@
+# The recipe for xtr-rate-limiter: what *Use in an application* in the README
+# takes, as data. Keep the two in step — the README is the source.
+
+[bundles]
+# "<module>:<class>" = the environments it is listed with, exactly as in BUNDLES.
+"xtr_rate_limiter.bundle:RateLimiterBundle" = { all = true }
+
+# No [files]: configuring is optional. With none there are no limiters and no
+# I/O; an application naming its limiters writes config/rate_limiter.py itself,
+# which is what [notes] asks for.
+
+# No [env]: nothing is required. A storage an application gives as env(...)
+# must be set when it boots, because booting checks every limiter.
+
+[gitignore]
+# Nothing of its own: what is written under var/ belongs to the cache and lock
+# bundles, and their recipes ignore it.
+lines = []
+
+[notes]
+steps = [
+  "Name the limiters in config/rate_limiter.py — their type, limit and interval: with no configuration there is no limiter to ask.",
+]
+check = ["<script> debug:bundles — rate_limiter is listed and active"]

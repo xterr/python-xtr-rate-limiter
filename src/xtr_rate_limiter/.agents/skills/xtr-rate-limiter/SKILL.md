@@ -228,6 +228,10 @@ async def test_a_sixth_login_is_refused() -> None:
 
 ## Use in an application
 
+`uv run xtr-recipes recipes:sync` applies the recipe shipped with this package: it lists
+`RateLimiterBundle`. That is the steps below a recipe can do; the step to name your limiters it
+prints for you to make.
+
 1. **Install** — `uv add "xtr-rate-limiter[di]"`; add `cache` with xtr-cache for state in a cache
    pool, `lock` with xtr-lock for a lock shared between processes, `redis` to count on a server.
 2. **Activate** — `RateLimiterBundle: {"all": True}` in `BUNDLES` in `<app>/bundles.py`

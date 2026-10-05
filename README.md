@@ -182,6 +182,9 @@ removing it undoes.
 - **Install** — `uv add "xtr-rate-limiter[di]"`; add `cache` and xtr-cache for state shared
   through a cache pool, `lock` and xtr-lock for a lock shared between processes, `redis` to
   count on a Redis server.
+- **Recipe** — `uv run xtr-recipes recipes:sync` does the *Activate* step below: it lists
+  `RateLimiterBundle`. There is no config file, environment or ignore line to write; it prints the
+  step to name your limiters in `config/rate_limiter.py`, which a recipe cannot make for you.
 - **Activate** — `RateLimiterBundle: {"all": True}` in `BUNDLES` in `<app>/bundles.py`,
   imported from `xtr_rate_limiter.bundle`.
 - **Brings along** — the cache bundle when xtr-cache is installed, and the lock bundle when
