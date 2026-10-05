@@ -1,6 +1,6 @@
 [project]
 name = "xtr-rate-limiter"
-version = "2.0.0"
+version = "3.0.0"
 description = "Limits on how often anything may happen — calls, jobs, logins — by fixed window, sliding window or token bucket, kept in memory, in a cache or atomically in Redis."
 readme = "README.md"
 authors = [
@@ -22,23 +22,23 @@ classifiers = [
 ]
 dependencies = [
     "typing-extensions>=4.4",
-    "xtr-clock>=2.0,<3",
-    "xtr-event-dispatcher-contracts>=2.0,<3",
+    "xtr-clock>=3.0,<4",
+    "xtr-event-dispatcher-contracts>=3.0,<4",
 ]
 
 [project.optional-dependencies]
 cache = [
-    "xtr-cache-contracts>=2.0,<3",
+    "xtr-cache-contracts>=3.0,<4",
 ]
 lock = [
-    "xtr-lock>=2.0,<3",
+    "xtr-lock>=3.0,<4",
 ]
 redis = [
     "redis>=5.0",
 ]
 di = [
-    "xtr-dependency-injection>=2.0,<3",
-    "xtr-service-contracts>=2.0,<3",
+    "xtr-dependency-injection>=3.0,<4",
+    "xtr-service-contracts>=3.0,<4",
 ]
 
 # Advertises the bundle so debug:bundles can name it when installed but not listed.
@@ -60,11 +60,11 @@ dev = [
     "ty>=0.0.83",
     "redis>=5.0",
     "fakeredis[lua]>=2.38.0",
-    "xtr-cache>=2.0,<3",
-    "xtr-cache-contracts>=2.0,<3",
-    "xtr-dependency-injection>=2.0,<3",
-    "xtr-lock>=2.0,<3",
-    "xtr-service-contracts>=2.0,<3",
+    "xtr-cache>=3.0,<4",
+    "xtr-cache-contracts>=3.0,<4",
+    "xtr-dependency-injection>=3.0,<4",
+    "xtr-lock>=3.0,<4",
+    "xtr-service-contracts>=3.0,<4",
 ]
 
 [build-system]
