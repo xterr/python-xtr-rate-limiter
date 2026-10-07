@@ -12,7 +12,8 @@ or when it may. Every call that touches a limiter is awaited.
 ## Quick reference
 
 - `factory.create(key)` → a `LimiterInterface`. `await limiter.consume(tokens=1)` → a `RateLimit`.
-- `consume(0)` reports the limit as it stands and spends nothing. Use it to peek.
+- `consume(0)` reports the limit as it stands and spends nothing. Use it to peek. A peek acts
+  now — `reserve(0).time_to_act` is the present moment; the wait is in `retry_after`.
 - `await limiter.reserve(tokens, max_time)` books tokens for when they come free;
   `await reservation.wait()` then waits. `await limiter.reset()` forgets the key's count.
 - Policies: `"fixed_window"`, `"sliding_window"`, `"token_bucket"`, `"no_limit"`, `"compound"`.
@@ -78,7 +79,7 @@ LimiterConfig("fixed_window", limit=1000, interval="1 month", anchor_at="2026-01
 LimiterConfig("sliding_window", limit=100, interval="1 minute")
 LimiterConfig("token_bucket", limit=10, rate=Rate("1 minute", amount=2))
 LimiterConfig("no_limit")
-LimiterConfig("compound", limiters=["api", "uploads"], keys={"global": "all"})
+LimiterConfig("compound", limiters=["api", "uploads"], keys={"uploads": "all"})
 ```
 
 | Policy | Takes | Behaves |
@@ -92,10 +93,12 @@ LimiterConfig("compound", limiters=["api", "uploads"], keys={"global": "all"})
 - Intervals are written `"30 seconds"`, `"1 hour 30 minutes"`, `"2 weeks"`, `"1 month"`, or a
   `timedelta`. `Rate` also has `Rate.per_second(2)`, `per_minute`, `per_hour`, `per_day`,
   `per_month`, `per_year`.
+- A fixed window covers `[start, start + interval)`: a hit at exactly one interval past the
+  start opens the next window rather than falling into the old one.
 - `anchor_at` needs an interval of at least a month; it makes windows follow a calendar instead
   of opening on the first hit.
-- A field a policy does not take is refused with `InvalidArgumentError` when the config is
-  built, not later.
+- A field a policy does not take — or a `keys` entry naming a limiter the compound limiter does
+  not combine — is refused with `InvalidArgumentError` when the config is built, not later.
 - Compound answers with the first refusal, or the limit closest to running out. Limits consulted
   before a refusal keep their spend. In code it is `CompoundRateLimiterFactory`, not
   `RateLimiterFactory`:
@@ -116,6 +119,12 @@ per_user = CompoundRateLimiterFactory(
 | `InMemoryStorage()` | this process | a lock within the process |
 | `CacheStorage(pool)` | every process reaching the pool | a lock from an `xtr-lock` `LockFactory` |
 | `RedisRateLimiterFactory(...)` | every process reaching the server | one atomic script per hit |
+
+`CacheStorage` keys every state `"rl."` and a hash of the limiter's id, so a pool shared with
+the rest of the application never collides with a count. The pool still encodes the state with
+pickle by default, and reading one runs code the stored bytes name: on a backend anything
+outside the application can write to, give that pool a `SodiumMarshaller`, which refuses bytes
+it cannot authenticate before pickle ever sees them.
 
 A storage limiter reads, decides and writes back under a lock on the key. Without a lock factory
 the lock is held within the process — which already matters in one process, since a task can be
@@ -142,10 +151,11 @@ factory = RedisRateLimiterFactory(
 )
 ```
 
-Keys are `"<prefix><id>-<key>"`, `prefix="rate_limiter:"`, each expiring once it no longer
-matters. The server's own clock counts, so the processes' clocks need not agree; pass
-`server_time=False` to count by the given `clock` instead. A server that cannot be reached
-raises `RateLimiterStorageError` rather than guessing.
+Keys are `"<prefix><length>:<id>:<key>"`, `prefix="rate_limiter:"` and `length` the id's, so
+the limit `"x"` keyed `"a-b"` and the limit `"x-a"` keyed `"b"` cannot share a count; each
+expires once it no longer matters. The server's own clock counts, so the processes' clocks need
+not agree; pass `server_time=False` to count by the given `clock` instead. A server that cannot
+be reached raises `RateLimiterStorageError` rather than guessing.
 
 ## Build a limit at runtime
 

@@ -23,9 +23,8 @@ connection the bundle opened from a DSN is closed when the container is.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable
 from dataclasses import replace
-from typing import TYPE_CHECKING, Final, final
+from typing import final
 
 from typing_extensions import override
 from xtr_dependency_injection import (
@@ -40,49 +39,26 @@ from xtr_dependency_injection import (
 )
 from xtr_service_contracts import ContainerInterface
 
-from xtr_rate_limiter.compound_rate_limiter_factory import CompoundRateLimiterFactory
 from xtr_rate_limiter.exception import InvalidArgumentError
 from xtr_rate_limiter.limiter_config import (
     AUTO_LOCK,
-    CACHE_STORAGE,
     DEFAULT_CACHE_POOL,
-    IN_MEMORY_STORAGE,
-    LimiterConfig,
 )
 from xtr_rate_limiter.rate_limiter_builder import RateLimiterBuilder
-from xtr_rate_limiter.rate_limiter_factory import RateLimiterFactory
-from xtr_rate_limiter.rate_limiter_factory_interface import RateLimiterFactoryInterface
-from xtr_rate_limiter.redis.redis_connection import (
-    create_redis_client,
-    is_redis_client,
-    is_redis_dsn,
-    redis_installed,
-)
-from xtr_rate_limiter.redis.redis_rate_limiter_factory import RedisRateLimiterFactory
-from xtr_rate_limiter.storage.in_memory_storage import InMemoryStorage
 from xtr_rate_limiter.storage.storage_interface import StorageInterface
 
+from ._storages import (
+    DEFAULT_LOCK_RESOURCE,
+    build_storage,
+    check_storage,
+    factory_of,
+    lock_factory,
+    wrong_referent,
+)
 from .builder_config import BuilderConfig
 from .rate_limiter_config import RateLimiterConfig
 
-if TYPE_CHECKING:
-    from xtr_lock import LockFactory
-
 __all__ = ["RateLimiterBundle"]
-
-_DEFAULT_LOCK_RESOURCE: Final = "default"
-"""The lock bundle's resource an ``"auto"`` lock uses."""
-
-_CACHE_MISSING: Final = (
-    'keeps its state in the "{pool}" cache pool, which the container does not provide: '
-    'activate the cache bundle (install "xtr-rate-limiter[cache]" and xtr-cache), '
-    'name a pool it has, or use another storage such as "in-memory"'
-)
-
-_UNKNOWN_STORAGE: Final = (
-    'uses the storage "{storage}": expected "cache", "in-memory", a Redis DSN, '
-    "or a Reference to a storage or a Redis client"
-)
 
 
 @final
@@ -128,7 +104,7 @@ class RateLimiterBundle(Bundle[RateLimiterConfig]):
         """
         lock_active = bundle_active(builder, "lock")
         for name, limiter in config.limiters.items():
-            factory = named_factory(_factory_of(name), f"rate_limiter_{name}")
+            factory = named_factory(factory_of(name), f"rate_limiter_{name}")
             lock = None if limiter.policy in {"compound", "no_limit"} else limiter.lock
             _ = services.set(factory, qualifier=name).set_arguments(
                 {
@@ -166,9 +142,9 @@ class RateLimiterBundle(Bundle[RateLimiterConfig]):
         config = await container.get(RateLimiterConfig)
         for name, limiter in config.limiters.items():
             if limiter.policy not in {"compound", "no_limit"}:
-                _check_storage(f'The "{name}" rate limiter', limiter, container)
+                check_storage(f'The "{name}" rate limiter', limiter, container)
         if config.builder != BuilderConfig():
-            _check_storage("The rate limiter builder", config.builder, container)
+            check_storage("The rate limiter builder", config.builder, container)
 
 
 def _lock_resource(name: str, lock: str | None, lock_active: bool) -> str | None:
@@ -181,109 +157,13 @@ def _lock_resource(name: str, lock: str | None, lock_active: bool) -> str | None
     if lock is None:
         return None
     if lock == AUTO_LOCK:
-        return _DEFAULT_LOCK_RESOURCE if lock_active else None
+        return DEFAULT_LOCK_RESOURCE if lock_active else None
     if not lock_active:
         raise InvalidArgumentError(
             f'The "{name}" rate limiter locks through the "{lock}" lock resource, '
             f"but the lock bundle is not active.",
         )
     return lock
-
-
-def _check_storage(
-    owner: str, config: LimiterConfig | BuilderConfig, container: ContainerInterface
-) -> None:
-    storage = config.storage
-    if isinstance(storage, Reference):
-        if not storage.exists_in(container):
-            raise InvalidArgumentError(
-                f"{owner} uses {storage}, which the container does not provide.",
-            )
-        return
-    if storage == IN_MEMORY_STORAGE:
-        return
-    if storage == CACHE_STORAGE:
-        if not _has_cache_pool(config.cache_pool, container):
-            raise InvalidArgumentError(f"{owner} {_CACHE_MISSING.format(pool=config.cache_pool)}.")
-        return
-    if is_redis_dsn(storage) and isinstance(config, LimiterConfig):
-        if not redis_installed():  # pragma: no cover — exercised only without the extra.
-            raise InvalidArgumentError(
-                f'{owner} counts in Redis, which needs "xtr-rate-limiter[redis]".',
-            )
-        return
-    raise InvalidArgumentError(f"{owner} {_UNKNOWN_STORAGE.format(storage=storage)}.")
-
-
-def _has_cache_pool(pool: str, container: ContainerInterface) -> bool:
-    try:
-        # The cache extra is optional.
-        from xtr_cache_contracts import CacheItemPoolInterface  # noqa: PLC0415
-    except ImportError:  # pragma: no cover — exercised only without the extra.
-        return False
-    return container.has(CacheItemPoolInterface, pool)
-
-
-def _factory_of(
-    name: str,
-) -> Callable[
-    [LimiterConfig, str, str | None, ContainerInterface],
-    AsyncIterator[RateLimiterFactoryInterface],
-]:
-    """Build the factory of ``name``'s limiter factory, closing a connection it opened.
-
-    One function per limiter, so each carries its own name in the
-    container's report.
-    """
-
-    async def rate_limiter(
-        config: LimiterConfig,
-        redis_prefix: str,
-        lock_resource: str | None,
-        container: ContainerInterface,
-    ) -> AsyncIterator[RateLimiterFactoryInterface]:
-        owner = f'The "{name}" rate limiter'
-        if config.policy == "compound":
-            factories = {
-                combined: await container.get(RateLimiterFactoryInterface, combined)
-                for combined in config.limiters
-            }
-            yield CompoundRateLimiterFactory(factories, config.keys)
-            return
-        if config.policy == "no_limit":
-            yield RateLimiterFactory(name, config, InMemoryStorage())
-            return
-
-        storage = config.storage
-        if isinstance(storage, Reference):
-            target = await storage.resolve(container)
-            if is_redis_client(target):
-                yield RedisRateLimiterFactory(name, config, target, prefix=redis_prefix)
-                return
-            yield RateLimiterFactory(
-                name,
-                config,
-                _as_storage(owner, storage, target),
-                await _lock_factory(lock_resource, container),
-            )
-            return
-
-        if is_redis_dsn(storage):
-            client = create_redis_client(storage)
-            try:
-                yield RedisRateLimiterFactory(name, config, client, prefix=redis_prefix)
-            finally:
-                await client.aclose()
-            return
-
-        yield RateLimiterFactory(
-            name,
-            config,
-            await _storage(owner, config, container),
-            await _lock_factory(lock_resource, container),
-        )
-
-    return rate_limiter
 
 
 async def _rate_limiter_builder(
@@ -295,53 +175,10 @@ async def _rate_limiter_builder(
     owner = "The rate limiter builder"
     storage = config.storage
     if isinstance(storage, Reference):
-        built = _as_storage(owner, storage, await storage.resolve(container))
+        target = await storage.resolve(container)
+        if not isinstance(target, StorageInterface):
+            raise wrong_referent(owner, storage, config)
+        built = target
     else:
-        built = await _storage(owner, config, container)
-    return RateLimiterBuilder(built, await _lock_factory(lock_resource, container))
-
-
-async def _storage(
-    owner: str, config: LimiterConfig | BuilderConfig, container: ContainerInterface
-) -> StorageInterface:
-    """Build the ``"cache"`` or ``"in-memory"`` storage ``config`` names."""
-    if config.storage == IN_MEMORY_STORAGE:
-        return InMemoryStorage()
-    if config.storage == CACHE_STORAGE:
-        if not _has_cache_pool(config.cache_pool, container):
-            raise InvalidArgumentError(f"{owner} {_CACHE_MISSING.format(pool=config.cache_pool)}.")
-        # The cache extra is optional; a pool proves it installed.
-        from xtr_cache_contracts import CacheItemPoolInterface  # noqa: PLC0415
-
-        from xtr_rate_limiter.storage.cache_storage import CacheStorage  # noqa: PLC0415
-
-        return CacheStorage(await container.get(CacheItemPoolInterface, config.cache_pool))
-    raise InvalidArgumentError(f"{owner} {_UNKNOWN_STORAGE.format(storage=config.storage)}.")
-
-
-def _as_storage(owner: str, reference: Reference, target: object) -> StorageInterface:
-    if not isinstance(target, StorageInterface):
-        raise InvalidArgumentError(
-            f"{owner} uses {reference}, which is neither a rate limiter storage "
-            f"nor a Redis client.",
-        )
-    return target
-
-
-async def _lock_factory(
-    lock_resource: str | None, container: ContainerInterface
-) -> LockFactory | None:
-    """Return the lock bundle's factory for ``lock_resource``; ``None`` for this process only."""
-    if lock_resource is None:
-        return None
-    # Only named when the lock bundle is active, which proves the package installed.
-    from xtr_lock import LockFactory  # noqa: PLC0415
-
-    if not container.has(LockFactory, lock_resource):
-        if lock_resource == _DEFAULT_LOCK_RESOURCE:
-            return None
-        raise InvalidArgumentError(
-            f'A rate limiter locks through the "{lock_resource}" lock resource, '
-            f"which the lock bundle does not configure.",
-        )
-    return await container.get(LockFactory, lock_resource)
+        built = await build_storage(owner, config, container)
+    return RateLimiterBuilder(built, await lock_factory(lock_resource, container))

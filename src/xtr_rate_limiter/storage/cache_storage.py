@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, Final, final
 
 from typing_extensions import override
 
@@ -17,19 +17,30 @@ if TYPE_CHECKING:
 
 __all__ = ["CacheStorage"]
 
+_KEY_PREFIX: Final = "rl."
+"""What every key this storage takes starts with, so a shared pool stays apart."""
+
 
 @final
 class CacheStorage(StorageInterface):
     """Keeps states in a cache pool, each expiring with its state.
 
-    States are stored under a hash of their id, so any key a caller limits
-    by — an address, an email — fits the pool's rules for keys.
+    States are stored under ``"rl."`` and a hash of their id, so any key a
+    caller limits by — an address, an email — fits the pool's rules for keys
+    and no other user of the pool can reach a limiter's count by accident.
 
     A cache never fails loudly: a pool that cannot reach its backend reads as
     empty and drops what it is given. A limiter on such a pool therefore lets
     every hit through while the backend is down — it fails open. Keep limits
     that must hold under that failure in Redis instead, where a failure is an
     error.
+
+    A state goes in and comes back as an object, which a pool encodes with
+    pickle by default: reading one runs code the stored bytes name. On a
+    backend anything outside the application can write to — a Redis server
+    shared with another tenant — give the pool a
+    :class:`~xtr_cache.marshaller.SodiumMarshaller`, which refuses bytes it
+    cannot authenticate before they ever reach pickle.
     """
 
     __slots__ = ("_pool",)
@@ -60,4 +71,4 @@ class CacheStorage(StorageInterface):
 
 
 def _key(state_id: str) -> str:
-    return hashlib.sha1(state_id.encode(), usedforsecurity=False).hexdigest()
+    return f"{_KEY_PREFIX}{hashlib.sha1(state_id.encode(), usedforsecurity=False).hexdigest()}"

@@ -42,7 +42,14 @@ from .exception import (
     RateLimitExceededError,
     ReserveNotSupportedError,
 )
-from .limiter_config import LimiterConfig, Policy
+from .limiter_config import (
+    AUTO_LOCK,
+    CACHE_STORAGE,
+    DEFAULT_CACHE_POOL,
+    IN_MEMORY_STORAGE,
+    LimiterConfig,
+    Policy,
+)
 from .limiter_interface import LimiterInterface
 from .limiter_state_interface import LimiterStateInterface
 from .policy import (
@@ -67,6 +74,10 @@ except PackageNotFoundError:  # pragma: no cover
     __version__ = "0+unknown"
 
 __all__ = [
+    "AUTO_LOCK",
+    "CACHE_STORAGE",
+    "DEFAULT_CACHE_POOL",
+    "IN_MEMORY_STORAGE",
     "CacheStorage",
     "CompoundLimiter",
     "CompoundRateLimiterFactory",

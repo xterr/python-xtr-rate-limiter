@@ -50,6 +50,7 @@ class CompoundLimiter(LimiterInterface):
         Raises:
             ReserveNotSupportedError: Always.
         """
+        del tokens, max_time
         raise ReserveNotSupportedError(type(self).__name__)
 
     @override

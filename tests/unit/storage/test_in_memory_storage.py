@@ -23,10 +23,28 @@ async def test_it_hands_back_a_copy_until_the_state_expires(clock: MockClock) ->
     fetched = await storage.fetch("w")
     assert isinstance(fetched, Window)
     assert fetched is not window
-    assert fetched.hit_count == 1
+    assert fetched.available_tokens(now) == 4
 
     clock.sleep(61)
     assert await storage.fetch("w") is None
+
+
+async def test_a_state_changed_after_it_was_saved_or_fetched_leaves_the_kept_one_alone(
+    clock: MockClock,
+) -> None:
+    storage = InMemoryStorage(clock)
+    now = clock.now().timestamp()
+    window = Window("w", 60, 5, now)
+    await storage.save(window)
+
+    window.add(5, now)
+    fetched = await storage.fetch("w")
+    assert isinstance(fetched, Window)
+    fetched.add(5, now)
+
+    kept = await storage.fetch("w")
+    assert isinstance(kept, Window)
+    assert kept.available_tokens(now) == 5
 
 
 async def test_expired_states_are_swept_out_without_being_read(clock: MockClock) -> None:

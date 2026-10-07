@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from xtr_rate_limiter import InvalidIntervalError
+from xtr_rate_limiter import InvalidArgumentError, InvalidIntervalError
 from xtr_rate_limiter._interval import Interval
 
 
@@ -66,3 +66,51 @@ def test_a_period_counts_every_boundary_from_the_anchor() -> None:
         datetime(2025, 11, 30, tzinfo=UTC),
         datetime(2025, 12, 31, tzinfo=UTC),
     )
+
+
+@pytest.mark.parametrize(
+    ("interval", "anchor", "moment", "expected"),
+    [
+        (
+            Interval(months=1),
+            datetime(1970, 1, 1, tzinfo=UTC),
+            datetime(2026, 3, 30, tzinfo=UTC),
+            (datetime(2026, 3, 1, tzinfo=UTC), datetime(2026, 4, 1, tzinfo=UTC)),
+        ),
+        (
+            Interval(months=1),
+            datetime(2270, 1, 1, tzinfo=UTC),
+            datetime(2026, 3, 30, tzinfo=UTC),
+            (datetime(2026, 3, 1, tzinfo=UTC), datetime(2026, 4, 1, tzinfo=UTC)),
+        ),
+        (
+            Interval(days=1),
+            datetime(1970, 1, 1, tzinfo=UTC),
+            datetime(2026, 3, 30, 12, tzinfo=UTC),
+            (datetime(2026, 3, 30, tzinfo=UTC), datetime(2026, 3, 31, tzinfo=UTC)),
+        ),
+        (
+            Interval(seconds=900),
+            datetime(1970, 1, 1, tzinfo=UTC),
+            datetime(2026, 3, 30, 12, 20, tzinfo=UTC),
+            (
+                datetime(2026, 3, 30, 12, 15, tzinfo=UTC),
+                datetime(2026, 3, 30, 12, 30, tzinfo=UTC),
+            ),
+        ),
+    ],
+)
+def test_a_period_is_found_whatever_the_distance_to_the_anchor(
+    interval: Interval,
+    anchor: datetime,
+    moment: datetime,
+    expected: tuple[datetime, datetime],
+) -> None:
+    assert interval.period_around(anchor, moment) == expected
+
+
+def test_a_period_of_nothing_is_refused_rather_than_divided_by() -> None:
+    with pytest.raises(InvalidArgumentError):
+        _ = Interval().period_around(
+            datetime(1970, 1, 1, tzinfo=UTC), datetime(2026, 3, 30, tzinfo=UTC)
+        )

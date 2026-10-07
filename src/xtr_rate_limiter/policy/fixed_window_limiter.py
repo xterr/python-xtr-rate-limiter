@@ -41,6 +41,9 @@ class FixedWindowLimiter(StoredLimiter):
     A window counts hits simply, so a burst at the end of one window and
     another at the start of the next can reach twice the limit in a short
     span; a sliding window smooths that out.
+
+    A window covers ``[start, start + interval)``, so the instant one
+    interval past its start already belongs to the next window.
     """
 
     __slots__: ClassVar[tuple[str, ...]] = (
@@ -87,9 +90,10 @@ class FixedWindowLimiter(StoredLimiter):
         window = await self._window(moment, now)
 
         if tokens == 0:
-            wait = window.time_for_tokens(1, now)
-            limit = self._rate_limit(window, now, retry_after=now + wait, accepted=True)
-            reservation = Reservation(now + wait, limit, clock=self._clock)
+            # A peek spends nothing, so it acts now; the wait is in retry_after.
+            retry_after = now + window.time_for_tokens(1, now)
+            limit = self._rate_limit(window, now, retry_after=retry_after, accepted=True)
+            reservation = Reservation(now, limit, clock=self._clock)
         elif self._available(window, now) >= tokens:
             exhausts = self._available(window, now) == tokens
             self._add(window, tokens, now)

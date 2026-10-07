@@ -71,48 +71,62 @@ class TokenBucketLimiter(StoredLimiter):
         )
 
         available = min(bucket.available_tokens(now), self._max_burst)
+        if tokens == 0:
+            # A peek spends nothing, so the bucket is left exactly as it was found.
+            retry_after = now + bucket.time_for_tokens(1) if available == 0 else now
+            limit = self._rate_limit(
+                available,
+                retry_after=retry_after,
+                reset_at=self._reset_at(bucket, available, now),
+                accepted=True,
+            )
+            return Reservation(now, limit, clock=self._clock)
+
         if available >= tokens:
             bucket.set_tokens(available - tokens, now)
-            retry_after = now + self._time_for_tokens(1) if available == tokens else now
+            retry_after = now + bucket.time_for_tokens(1) if available == tokens else now
             limit = self._rate_limit(
                 bucket.available_tokens(now),
-                available - tokens,
-                now,
                 retry_after=retry_after,
+                reset_at=self._reset_at(bucket, available - tokens, now),
                 accepted=True,
             )
             reservation = Reservation(now, limit, clock=self._clock)
         else:
-            wait = self._time_for_tokens(tokens - available)
+            wait = bucket.time_for_tokens(tokens - available)
             if max_time is not None and wait > max_time:
                 rejected = self._rate_limit(
-                    available, available, now, retry_after=now + wait, accepted=False
+                    available,
+                    retry_after=now + wait,
+                    reset_at=self._reset_at(bucket, available, now),
+                    accepted=False,
                 )
                 raise MaxWaitDurationExceededError(wait, max_time, rejected)
             # Every token until then is booked for this caller: none is left for anyone else.
             bucket.set_tokens(available - tokens, now)
             limit = self._rate_limit(
-                0, available - tokens, now, retry_after=now + wait, accepted=False
+                0,
+                retry_after=now + wait,
+                reset_at=self._reset_at(bucket, available - tokens, now),
+                accepted=False,
             )
             reservation = Reservation(now + wait, limit, clock=self._clock)
 
-        if tokens != 0:
-            await self._storage.save(bucket)
+        await self._storage.save(bucket)
         return reservation
 
-    def _time_for_tokens(self, tokens: int) -> float:
-        return -(-tokens // self._amount) * self._cycle
+    def _reset_at(self, bucket: TokenBucket, left: int, now: float) -> float:
+        """Return when the bucket holds its whole burst again, ``left`` tokens being in it now."""
+        return now + bucket.time_for_tokens(max(0, self._max_burst - left))
 
     def _rate_limit(
         self,
         remaining: int,
-        left: int,
-        now: float,
         *,
         retry_after: float,
+        reset_at: float,
         accepted: bool,
     ) -> RateLimit:
-        reset_at = now + self._time_for_tokens(max(0, self._max_burst - left))
         return RateLimit(
             remaining,
             instant(retry_after),

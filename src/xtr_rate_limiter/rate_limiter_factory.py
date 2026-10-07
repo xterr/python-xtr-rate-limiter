@@ -8,6 +8,7 @@ from typing_extensions import override
 from xtr_clock import Clock
 
 from ._lock import lock_for
+from ._state_id import state_id
 from .exception import InvalidArgumentError
 from .policy.fixed_window_limiter import FixedWindowLimiter
 from .policy.no_limiter import NoLimiter
@@ -31,10 +32,11 @@ __all__ = ["RateLimiterFactory"]
 class RateLimiterFactory(RateLimiterFactoryInterface):
     """Hands out limiters for one limit, keeping their state in ``storage``.
 
-    Each limiter's state is kept under ``"<id>-<key>"``. Its read and write
-    happen under a lock on that name, taken from ``lock_factory`` — so
-    processes sharing the storage also share the lock — or held within this
-    process when there is none.
+    Each limiter's state is kept under ``"<length>:<id>:<key>"``, the
+    length being the limit's name's, so no two name-and-key pairs ever meet
+    in one state. Its read and write happen under a lock on that name,
+    taken from ``lock_factory`` — so processes sharing the storage also
+    share the lock — or held within this process when there is none.
 
     ```python
     factory = RateLimiterFactory(
@@ -86,20 +88,20 @@ class RateLimiterFactory(RateLimiterFactoryInterface):
         if config.policy == "no_limit" or config.limit is None:
             return NoLimiter(self._clock)
 
-        state_id = f"{self._id}-{key or ''}"
-        lock = lock_for(state_id, self._lock_factory)
+        name = state_id(self._id, key)
+        lock = lock_for(name, self._lock_factory)
         if config.rate is not None:
             return TokenBucketLimiter(
-                state_id, config.limit, config.rate, self._storage, lock, clock=self._clock
+                name, config.limit, config.rate, self._storage, lock, clock=self._clock
             )
         # Only windows are left, and a window's config always has an interval.
         interval = cast("Interval", self._interval)
         if config.policy == "sliding_window":
             return SlidingWindowLimiter(
-                state_id, config.limit, interval, self._storage, lock, clock=self._clock
+                name, config.limit, interval, self._storage, lock, clock=self._clock
             )
         return FixedWindowLimiter(
-            state_id,
+            name,
             config.limit,
             interval,
             self._storage,

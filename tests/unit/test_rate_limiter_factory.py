@@ -63,3 +63,16 @@ async def test_a_lock_factory_guards_each_change(clock: MockClock) -> None:
     limits = await asyncio.gather(*(factory.create("a").consume() for _ in range(6)))
 
     assert sum(limit.is_accepted() for limit in limits) == 3
+
+
+async def test_two_limiters_whose_names_and_keys_run_together_count_apart(
+    clock: MockClock,
+) -> None:
+    config = LimiterConfig("fixed_window", limit=1, interval="1 minute")
+    storage = InMemoryStorage(clock)
+    one = RateLimiterFactory("x", config, storage, clock=clock).create("a-b")
+    other = RateLimiterFactory("x-a", config, storage, clock=clock).create("b")
+
+    _ = await one.consume()
+
+    assert (await other.consume()).is_accepted()

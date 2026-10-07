@@ -7,7 +7,6 @@ def test_it_counts_hits_until_the_period_ends() -> None:
     window = CalendarAlignedWindow("c", 2, period_start=0, period_end=100)
     window.add(2)
 
-    assert window.hit_count == 2
     assert window.available_tokens() == 0
     assert window.availability_time(1, now=40) == 100
     assert window.time_for_tokens(1, now=40) == 60

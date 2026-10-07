@@ -68,6 +68,8 @@ if not limit.is_accepted():
 | `await wait()` | wait until `retry_after` |
 
 Consuming `0` tokens reports the limit as it stands and spends nothing.
+A peek acts now: `reserve(0)` books nothing and its `time_to_act` is the present moment, with
+the wait to the next free token in the limit's `retry_after`.
 
 ### Waiting instead of refusing
 
@@ -96,9 +98,10 @@ LimiterConfig("compound", limiters=["per_minute", "per_day"])
 ```
 
 - **`fixed_window`** — at most `limit` hits per window of `interval`. A window opens on the
-  first hit; with `anchor_at` (an interval of a month or more) windows follow a calendar
-  instead — the first of each month, whenever hits arrive. Cheap, but a burst at the end of
-  one window and another at the start of the next go through together.
+  first hit and covers `[start, start + interval)`, so a hit at exactly one interval past the
+  start opens the next window; with `anchor_at` (an interval of a month or more) windows follow
+  a calendar instead — the first of each month, whenever hits arrive. Cheap, but a burst at the
+  end of one window and another at the start of the next go through together.
 - **`sliding_window`** — at most `limit` hits in any span of `interval`, estimated from the
   current window and a fading share of the last one. Smooths the edge burst out.
 - **`token_bucket`** — a bucket of `limit` tokens refilled by `rate`: an idle caller can burst,
@@ -133,6 +136,12 @@ factory = RateLimiterFactory("api", config, CacheStorage(pool), LockFactory(Redi
 A cache pool never fails loudly: a pool whose backend is down reads as empty, so a limiter on
 it lets every hit through until the backend is back. Use Redis for limits that must hold then.
 
+`CacheStorage` keys every state `"rl."` and a hash of the limiter's id, so a pool it shares with
+the rest of the application cannot collide with a count. The pool still encodes the state with
+pickle by default, and reading one runs code the stored bytes name — on a backend anything
+outside the application can write to, give that pool a `SodiumMarshaller`, which refuses bytes
+it cannot authenticate before pickle ever sees them.
+
 ### Redis
 
 `RedisRateLimiterFactory` keeps each limiter's state in one hash and changes it in one script
@@ -150,11 +159,12 @@ factory = RedisRateLimiterFactory(
 )
 ```
 
-Keys are `"<prefix><id>-<key>"` (`prefix="rate_limiter:"`), each expiring once it no longer
-matters. A server that cannot be reached raises `RateLimiterStorageError` rather than guessing:
-whether to let a hit through then is the caller's call. A server refusing to read its clock in a
-script is sent this process's instead; a calendar-anchored window always counts by this
-process's clock, since the calendar is worked out here.
+Keys are `"<prefix><length>:<id>:<key>"` (`prefix="rate_limiter:"`, `length` the id's, so the
+limit `"x"` keyed `"a-b"` and the limit `"x-a"` keyed `"b"` cannot share a count), each expiring
+once it no longer matters. A server that cannot be reached raises `RateLimiterStorageError`
+rather than guessing: whether to let a hit through then is the caller's call. A server refusing
+to read its clock in a script is sent this process's instead; a calendar-anchored window always
+counts by this process's clock, since the calendar is worked out here.
 
 ### Building limits in code
 

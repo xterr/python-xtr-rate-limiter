@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import pickle
-from typing import TYPE_CHECKING, Final, cast, final
+from copy import deepcopy
+from typing import TYPE_CHECKING, Final, final
 
 from typing_extensions import override
 from xtr_clock import Clock
@@ -26,8 +26,10 @@ class InMemoryStorage(StorageInterface):
     """Keeps states in a dictionary of this process, each until it expires.
 
     A state is copied in and out, so a limiter changing the state it fetched
-    changes nothing here until it saves it. Nothing is shared with another
-    process: each counts its own hits.
+    changes nothing here until it saves it, and a state saved is a snapshot
+    of the moment it was. The copy is made object to object, so nothing a
+    caller handed over is ever serialized or read back as code. Nothing is
+    shared with another process: each counts its own hits.
 
     Every thousand saves the expired states are swept out, so a process
     limiting by client address does not keep one state per address it ever
@@ -39,7 +41,7 @@ class InMemoryStorage(StorageInterface):
     def __init__(self, clock: ClockInterface | None = None) -> None:
         """Keep states, expiring them by ``clock``; the clock in force when ``None``."""
         self._clock: ClockInterface = clock if clock is not None else Clock()
-        self._states: dict[str, tuple[float | None, bytes]] = {}
+        self._states: dict[str, tuple[float | None, LimiterStateInterface]] = {}
         self._saves = 0
 
     def __len__(self) -> int:
@@ -52,7 +54,7 @@ class InMemoryStorage(StorageInterface):
         expires_at = state.expires_at
         if expires_at is None and state.id in self._states:
             expires_at = self._states[state.id][0]
-        self._states[state.id] = (expires_at, pickle.dumps(state))
+        self._states[state.id] = (expires_at, deepcopy(state))
         self._saves += 1
         if self._saves % _PRUNE_EVERY == 0:
             self._prune()
@@ -67,8 +69,7 @@ class InMemoryStorage(StorageInterface):
         if expires_at is not None and expires_at <= self._clock.now().timestamp():
             del self._states[state_id]
             return None
-        # Only this storage wrote it, from a state it was handed.
-        return cast("LimiterStateInterface", pickle.loads(state))  # noqa: S301
+        return deepcopy(state)
 
     @override
     async def delete(self, state_id: str, /) -> None:

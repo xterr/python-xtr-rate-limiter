@@ -83,6 +83,35 @@ async def test_a_fixed_window_accepts_again_once_it_ends(
     assert (await limiter.consume()).is_accepted()
 
 
+async def test_a_fixed_window_ends_at_the_instant_the_next_one_opens_on(
+    factory_for: Callable[[LimiterConfig], RateLimiterFactoryInterface], clock: MockClock
+) -> None:
+    limiter = factory_for(LimiterConfig("fixed_window", limit=5, interval="1 minute")).create("a")
+    _ = await limiter.consume(5)
+
+    clock.sleep(59)
+    refused = await limiter.consume()
+    clock.sleep(1)
+    admitted = await limiter.consume()
+
+    assert not refused.is_accepted()
+    assert admitted.is_accepted()
+
+
+async def test_peeking_an_exhausted_fixed_window_acts_now_and_says_when_to_retry(
+    factory_for: Callable[[LimiterConfig], RateLimiterFactoryInterface], clock: MockClock
+) -> None:
+    limiter = factory_for(LimiterConfig("fixed_window", limit=1, interval="1 minute")).create("a")
+    start = _now(clock)
+    _ = await limiter.consume()
+
+    peek = await limiter.reserve(0)
+
+    assert peek.time_to_act == pytest.approx(start)
+    assert peek.wait_duration() == 0
+    assert peek.rate_limit.retry_after.timestamp() == pytest.approx(start + 60)
+
+
 async def test_keys_are_counted_apart(
     factory_for: Callable[[LimiterConfig], RateLimiterFactoryInterface],
 ) -> None:
@@ -198,6 +227,23 @@ async def test_a_calendar_window_reserves_into_the_next_period(
     assert reservation.time_to_act == pytest.approx(datetime(2026, 2, 1, tzinfo=UTC).timestamp())
     with pytest.raises(MaxWaitDurationExceededError):
         _ = await limiter.reserve(max_time=60)
+
+
+async def test_peeking_an_exhausted_calendar_window_acts_now(
+    factory_for: Callable[[LimiterConfig], RateLimiterFactoryInterface], clock: MockClock
+) -> None:
+    config = LimiterConfig(
+        "fixed_window", limit=1, interval="1 month", anchor_at="2026-01-01T00:00:00+00:00"
+    )
+    limiter = factory_for(config).create("a")
+    start = _now(clock)
+    _ = await limiter.consume()
+
+    peek = await limiter.reserve(0)
+
+    assert peek.time_to_act == pytest.approx(start)
+    february = datetime(2026, 2, 1, tzinfo=UTC).timestamp()
+    assert peek.rate_limit.retry_after.timestamp() == pytest.approx(february)
 
 
 # ── sliding window ────────────────────────────────────────────────────────

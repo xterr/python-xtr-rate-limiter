@@ -32,6 +32,10 @@ _SECONDS: Final = {"second": 1, "minute": 60, "hour": 3600}
 _DAYS: Final = {"day": 1, "week": 7}
 _MONTHS: Final = {"month": 1, "year": 12}
 
+_DAY_SECONDS: Final = 86_400.0
+_AVERAGE_MONTH_SECONDS: Final = 30.436875 * _DAY_SECONDS
+"""A calendar month's average length, over the four centuries the calendar repeats in."""
+
 
 @final
 @dataclass(frozen=True, slots=True)
@@ -117,8 +121,20 @@ class Interval:
         Every boundary is counted from ``anchor`` itself rather than from the
         boundary before it, so a month anchored on the 31st comes back to the
         31st whenever a month has one.
+
+        The step is first guessed by arithmetic — the distance to ``anchor``
+        divided by this interval's average length — so an anchor decades away
+        costs no more than one next door. The walks that follow correct only
+        what a calendar puts the guess out by.
+
+        Raises:
+            InvalidIntervalError: When this interval is no span at all, which
+                holds no moment and would divide the guess by nothing.
         """
-        step = 0
+        average = self.months * _AVERAGE_MONTH_SECONDS + self.days * _DAY_SECONDS + self.seconds
+        if not average:
+            raise InvalidIntervalError(self, "a period must last longer than nothing")
+        step = int((moment - anchor).total_seconds() // average)
         while self._boundary(anchor, step + 1) <= moment:
             step += 1
         while self._boundary(anchor, step) > moment:

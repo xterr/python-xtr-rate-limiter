@@ -12,6 +12,9 @@ __all__ = ["Window"]
 class Window:
     """Hits counted in a window of fixed length that starts on the first hit.
 
+    A window covers ``[timer, timer + interval)``: the instant one interval
+    past its start belongs to the next window, never to both.
+
     Tokens reserved beyond the window's size are a debt the next windows pay:
     when a window rolls over, the hits it could not hold are carried into the
     one after, so a reservation never hands out tokens twice.
@@ -38,14 +41,9 @@ class Window:
         """Long enough for any debt to be carried forward, however far it reaches."""
         return self._expires_at
 
-    @property
-    def hit_count(self) -> int:
-        """The hits counted, debt included, as of the window's start."""
-        return self._hit_count
-
     def add(self, hits: int, now: float) -> None:
         """Count ``hits`` at ``now``, rolling the window over first when it has ended."""
-        if now - self._timer > self._interval:
+        if now - self._timer >= self._interval:
             self._hit_count = self._carried_hit_count(now)
             self._timer = now
         self._hit_count = max(0, self._hit_count + hits)
@@ -70,7 +68,7 @@ class Window:
     def _carried_hit_count(self, now: float) -> int:
         """Return the hits still owed at ``now``, after every window that has since ended."""
         elapsed = now - self._timer
-        if elapsed <= self._interval:
+        if elapsed < self._interval:
             return self._hit_count
         windows_elapsed = int(elapsed / self._interval)
         return max(0, self._hit_count - windows_elapsed * self._max_size)

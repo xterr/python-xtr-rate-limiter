@@ -60,7 +60,7 @@ end
 -- the hits still owed after every window that has since ended
 local function carried(at)
     local elapsed = at - timer
-    if elapsed <= interval then
+    if elapsed < interval then
         return hits
     end
     return math.max(0, hits - math.floor(elapsed / interval) * limit)
@@ -78,7 +78,7 @@ local function availability(count, at)
 end
 
 local function add(count, at)
-    if at - timer > interval then
+    if at - timer >= interval then
         hits = carried(at)
         timer = at
     end
@@ -87,8 +87,9 @@ end
 
 local accepted, time_to_act, retry_after
 if tokens == 0 then
-    time_to_act = now + math.max(0, availability(1, now) - now)
-    retry_after = time_to_act
+    -- a peek spends nothing, so it acts now; the wait is in retry_after
+    retry_after = now + math.max(0, availability(1, now) - now)
+    time_to_act = now
     accepted = 1
 elseif available(now) >= tokens then
     local exhausts = available(now) == tokens
@@ -140,8 +141,9 @@ end
 
 local accepted, time_to_act, retry_after
 if tokens == 0 then
-    time_to_act = availability(1)
-    retry_after = time_to_act
+    -- a peek spends nothing, so it acts now; the wait is in retry_after
+    retry_after = availability(1)
+    time_to_act = now
     accepted = 1
 elseif limit - hits >= tokens then
     local exhausts = limit - hits == tokens

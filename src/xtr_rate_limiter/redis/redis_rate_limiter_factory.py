@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Final, cast, final
 from typing_extensions import override
 from xtr_clock import Clock
 
+from xtr_rate_limiter._state_id import state_id
 from xtr_rate_limiter.exception import InvalidArgumentError
 from xtr_rate_limiter.policy.no_limiter import NoLimiter
 from xtr_rate_limiter.rate_limiter_factory_interface import RateLimiterFactoryInterface
@@ -39,8 +40,9 @@ class RedisRateLimiterFactory(RateLimiterFactoryInterface):
     The same policies as :class:`~xtr_rate_limiter.rate_limiter_factory.RateLimiterFactory`,
     with no storage and no lock: the server keeps the state and changes it
     whole, so every process reaching it shares each limit exactly. Each
-    limiter's state is one hash under ``"<prefix><id>-<key>"``, expiring once
-    it no longer matters.
+    limiter's state is one hash under ``"<prefix><length>:<id>:<key>"``, the
+    length being the limit's name's so no two name-and-key pairs ever meet
+    in one key, expiring once it no longer matters.
 
     ```python
     factory = RedisRateLimiterFactory(
@@ -104,7 +106,7 @@ class RedisRateLimiterFactory(RateLimiterFactoryInterface):
         if config.policy == "no_limit" or limit is None:
             return NoLimiter(self._clock)
 
-        redis_key = f"{self._prefix}{self._id}-{key or ''}"
+        redis_key = f"{self._prefix}{state_id(self._id, key)}"
         now = self._clock.now().timestamp()
         if config.rate is not None:
             arguments: Sequence[str | int | float] = (

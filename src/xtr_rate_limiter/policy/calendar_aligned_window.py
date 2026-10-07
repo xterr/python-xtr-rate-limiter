@@ -48,11 +48,6 @@ class CalendarAlignedWindow:
         """When the period ends, in seconds since the epoch."""
         return self._period_end
 
-    @property
-    def hit_count(self) -> int:
-        """The hits counted in the period."""
-        return self._hit_count
-
     def add(self, hits: int) -> None:
         """Count ``hits``."""
         self._hit_count = max(0, self._hit_count + hits)

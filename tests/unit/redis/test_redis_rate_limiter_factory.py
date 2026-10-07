@@ -24,8 +24,20 @@ async def test_it_counts_by_the_server_clock_and_keeps_one_hash_per_key(
 
     assert isinstance(limiter, RedisLimiter)
     assert limit.remaining_tokens == 1
-    assert await redis_client.hget("app:api-alice", "hits") == b"1"
-    assert 0 < await redis_client.pttl("app:api-alice") <= 60_000
+    assert await redis_client.hget("app:3:api:alice", "hits") == b"1"
+    assert 0 < await redis_client.pttl("app:3:api:alice") <= 60_000
+
+
+async def test_two_limiters_whose_names_and_keys_run_together_count_apart(
+    redis_client: FakeAsyncRedis,
+) -> None:
+    config = LimiterConfig("fixed_window", limit=1, interval="1 minute")
+    one = RedisRateLimiterFactory("x", config, redis_client).create("a-b")
+    other = RedisRateLimiterFactory("x-a", config, redis_client).create("b")
+
+    _ = await one.consume()
+
+    assert (await other.consume()).is_accepted()
 
 
 async def test_no_limit_needs_no_server(redis_client: FakeAsyncRedis) -> None:

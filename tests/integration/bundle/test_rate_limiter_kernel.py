@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 from xtr_cache_contracts import CacheItemPoolInterface
 from xtr_dependency_injection import Kernel
+from xtr_dependency_injection.exception import ServiceResolutionError
 
 from xtr_rate_limiter import (
     CompoundRateLimiterFactory,
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 APP = "tests.fixtures.app_rate_limiter"
+REFERENCES_APP = "tests.fixtures.app_rate_limiter_references"
 
 _ENVIRON: Mapping[str, str] = {
     "RL_LOGIN_STORAGE": "cache",
@@ -99,3 +101,44 @@ async def test_boot_refuses_a_storage_it_cannot_build(
     with pytest.raises(InvalidArgumentError, match=message):
         async with await _kernel(**{variable: value}).boot():
             pass
+
+
+async def test_a_refused_storage_is_reported_down_to_its_scheme() -> None:
+    dsn = "postgres://admin:s3cret@db.internal:5432/limits"
+
+    with pytest.raises(InvalidArgumentError) as raised:
+        async with await _kernel(RL_LOGIN_STORAGE=dsn).boot():
+            pass
+
+    reported = str(raised.value)
+    assert 'uses the storage "postgres://"' in reported
+    assert "s3cret" not in reported
+    assert "db.internal" not in reported
+
+
+async def test_a_limiter_and_the_builder_each_list_the_storages_they_take() -> None:
+    with pytest.raises(InvalidArgumentError) as limiter:
+        async with await _kernel(RL_LOGIN_STORAGE="nowhere").boot():
+            pass
+    with pytest.raises(InvalidArgumentError) as builder:
+        async with await _kernel(RL_BUILDER_STORAGE="nowhere").boot():
+            pass
+
+    assert "a Redis DSN" in str(limiter.value)
+    assert "a Redis client" in str(limiter.value)
+    assert "a Redis DSN" not in str(builder.value)
+    assert "a Redis client" not in str(builder.value)
+    assert "a Reference to a storage" in str(builder.value)
+
+
+async def test_a_reference_to_something_else_names_what_it_should_point_at() -> None:
+    async with await Kernel(REFERENCES_APP, env="test").boot() as booted:
+        with pytest.raises(ServiceResolutionError) as limiter:
+            _ = await booted.container.get(RateLimiterFactoryInterface, "wrong")
+        with pytest.raises(ServiceResolutionError) as builder:
+            _ = await booted.container.get(RateLimiterBuilder)
+
+        assert isinstance(limiter.value.__cause__, InvalidArgumentError)
+        assert isinstance(builder.value.__cause__, InvalidArgumentError)
+        assert "is neither a rate limiter storage nor a Redis client" in str(limiter.value)
+        assert "is not a rate limiter storage" in str(builder.value)
