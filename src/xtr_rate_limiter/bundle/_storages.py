@@ -48,7 +48,7 @@ DEFAULT_LOCK_RESOURCE: Final = "default"
 
 _CACHE_MISSING: Final = (
     'keeps its state in the "{pool}" cache pool, which the container does not provide: '
-    'activate the cache bundle (install "xtr-rate-limiter[cache]" and xtr-cache), '
+    "activate the cache bundle (install xtr-cache), "
     'name a pool it has, or use another storage such as "in-memory"'
 )
 
@@ -175,7 +175,7 @@ async def build_storage(
     if config.storage == CACHE_STORAGE:
         if not _has_cache_pool(config.cache_pool, container):
             raise InvalidArgumentError(f"{owner} {_CACHE_MISSING.format(pool=config.cache_pool)}.")
-        # The cache extra is optional; a pool proves it installed.
+        # xtr-cache-contracts is optional; a pool proves it installed.
         from xtr_cache_contracts import CacheItemPoolInterface  # noqa: PLC0415
 
         from xtr_rate_limiter.storage.cache_storage import CacheStorage  # noqa: PLC0415
@@ -219,8 +219,8 @@ def _unknown_storage(owner: str, config: LimiterConfig | BuilderConfig) -> Inval
 
 def _has_cache_pool(pool: str, container: ContainerInterface) -> bool:
     try:
-        # The cache extra is optional.
+        # xtr-cache-contracts is optional: installed with xtr-cache, or on its own.
         from xtr_cache_contracts import CacheItemPoolInterface  # noqa: PLC0415
-    except ImportError:  # pragma: no cover — exercised only without the extra.
+    except ImportError:  # pragma: no cover — exercised only without xtr-cache-contracts.
         return False
     return container.has(CacheItemPoolInterface, pool)

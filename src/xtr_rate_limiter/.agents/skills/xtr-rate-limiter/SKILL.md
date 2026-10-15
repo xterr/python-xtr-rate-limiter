@@ -19,8 +19,10 @@ or when it may. Every call that touches a limiter is awaited.
 - Policies: `"fixed_window"`, `"sliding_window"`, `"token_bucket"`, `"no_limit"`, `"compound"`.
 - Storage: `InMemoryStorage()` (this process), `CacheStorage(pool)` (every process on the pool),
   `RedisRateLimiterFactory(...)` (one atomic script per hit, no lock).
-- In an application: activate `RateLimiterBundle`, name limiters in `RateLimiterConfig`, inject
-  `Annotated[RateLimiterFactoryInterface, Target("<name>")]`.
+- In an application, with xtr-dependency-injection installed beside the package (it is not a
+  dependency): activate `RateLimiterBundle`, name limiters in `RateLimiterConfig`, inject
+  `Annotated[RateLimiterFactoryInterface, Target("<name>")]`. Without the container, build the
+  factories yourself; only `xtr_rate_limiter.bundle` needs it.
 - Limiters dispatch nothing. Code that turns a hit away dispatches `RateLimitExceededEvent`.
 
 ## Decide now
@@ -174,7 +176,7 @@ factory = builder.token_bucket(f"tenant-{tenant.id}", limit=tenant.burst, interv
 
 ## Limit an HTTP route
 
-With `xtr-http-kernel[rate-limiter]`, one declaration holds a route, a router or the whole
+With xtr-http-kernel installed beside it, one declaration holds a route, a router or the whole
 application to a limiter the bundle configured:
 
 ```python
@@ -242,8 +244,10 @@ async def test_a_sixth_login_is_refused() -> None:
 `RateLimiterBundle`. That is the steps below a recipe can do; the step to name your limiters it
 prints for you to make.
 
-1. **Install** — `uv add "xtr-rate-limiter[di]"`; add `cache` with xtr-cache for state in a cache
-   pool, `lock` with xtr-lock for a lock shared between processes, `redis` to count on a server.
+1. **Install** — `uv add xtr-rate-limiter xtr-dependency-injection`: the bundle needs the
+   container installed beside it, never as an extra. Add `redis` to count on a server. Install
+   xtr-cache beside it for state in a cache pool, and xtr-lock for a lock shared between
+   processes.
 2. **Activate** — `RateLimiterBundle: {"all": True}` in `BUNDLES` in `<app>/bundles.py`
    (`from xtr_rate_limiter.bundle import RateLimiterBundle`).
 3. **Brings along** — the cache bundle when xtr-cache is installed, the lock bundle when

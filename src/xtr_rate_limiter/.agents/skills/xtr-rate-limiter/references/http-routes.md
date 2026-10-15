@@ -1,9 +1,9 @@
 # Limiting HTTP routes
 
-With `xtr-http-kernel[rate-limiter]`, `RateLimited` holds a route, a router or the whole
-application to a limiter the rate limiter bundle configured. It is a dependency, so it runs
-after routing and before the endpoint, in the framework's order: the application's limits, the
-routers', then the route's.
+With xtr-http-kernel installed beside xtr-rate-limiter, `RateLimited` holds a route, a router or
+the whole application to a limiter the rate limiter bundle configured. It is a dependency, so it
+runs after routing and before the endpoint, in the framework's order: the application's limits,
+the routers', then the route's.
 
 ```python
 from fastapi import APIRouter, FastAPI, Request

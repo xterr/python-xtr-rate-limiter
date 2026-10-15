@@ -30,12 +30,22 @@ framework in sight.
 ## Install
 
 ```sh
-uv add xtr-rate-limiter                  # policies, in-memory storage
-uv add "xtr-rate-limiter[redis]"         # + atomic counting on a Redis server
-uv add "xtr-rate-limiter[cache]"         # + state in a cache pool
-uv add "xtr-rate-limiter[lock]"          # + locks shared between processes
-uv add "xtr-rate-limiter[di]"            # + the bundle
+uv add xtr-rate-limiter                           # policies, in-memory storage
+uv add "xtr-rate-limiter[redis]"                  # + atomic counting on a Redis server
+uv add xtr-rate-limiter xtr-dependency-injection  # + the container, for the RateLimiterBundle
+uv add xtr-cache                                  # beside it: state kept in a cache pool
+uv add xtr-lock                                   # beside it: a lock shared between processes
 ```
+
+Requires Python 3.11+. Depends on `typing-extensions`, `xtr-clock` and
+`xtr-event-dispatcher-contracts`. What else it works with is installed beside it, never as an
+extra, and the limiters run without any of it:
+
+- [xtr-dependency-injection](../xtr-dependency-injection) — the container, for the
+  `RateLimiterBundle`;
+- [xtr-cache](../xtr-cache), or another implementation of
+  [xtr-cache-contracts](../xtr-cache-contracts) — state kept in a cache pool;
+- [xtr-lock](../xtr-lock) — a lock shared between processes.
 
 ## Quick start
 
@@ -189,9 +199,10 @@ Everything adding this package to an application on
 [xtr-dependency-injection](../xtr-dependency-injection) takes — and, read backwards, what
 removing it undoes.
 
-- **Install** — `uv add "xtr-rate-limiter[di]"`; add `cache` and xtr-cache for state shared
-  through a cache pool, `lock` and xtr-lock for a lock shared between processes, `redis` to
-  count on a Redis server.
+- **Install** — `uv add xtr-rate-limiter xtr-dependency-injection`: the bundle needs the
+  container installed beside it, never as an extra. Add `redis` to count on a Redis server.
+  Install xtr-cache beside it for state shared through a cache pool, and xtr-lock for a lock
+  shared between processes.
 - **Recipe** — `uv run xtr-recipes recipes:sync` does the *Activate* step below: it lists
   `RateLimiterBundle`. There is no config file, environment or ignore line to write; it prints the
   step to name your limiters in `config/rate_limiter.py`, which a recipe cannot make for you.
@@ -210,6 +221,10 @@ removing it undoes.
 - **Check** — `debug:bundles` shows `rate_limiter` as `listed` and `active`.
 
 ## Kernel / bundle
+
+With [xtr-dependency-injection](../xtr-dependency-injection) installed beside the package — it is
+not a dependency, and nothing outside `xtr_rate_limiter.bundle` needs it — list the bundle and
+name the limiters:
 
 ```python
 # app/bundles.py

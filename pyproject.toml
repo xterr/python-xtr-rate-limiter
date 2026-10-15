@@ -27,18 +27,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-cache = [
-    "xtr-cache-contracts>=4.0,<5",
-]
-lock = [
-    "xtr-lock>=4.0,<5",
-]
 redis = [
     "redis>=5.0",
-]
-di = [
-    "xtr-dependency-injection>=4.0,<5",
-    "xtr-service-contracts>=4.0,<5",
 ]
 
 # Advertises the bundle so debug:bundles can name it when installed but not listed.
