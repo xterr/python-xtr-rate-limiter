@@ -1,6 +1,6 @@
 [project]
 name = "xtr-rate-limiter"
-version = "4.1.0"
+version = "5.0.0"
 description = "Limits on how often anything may happen — calls, jobs, logins — by fixed window, sliding window or token bucket, kept in memory, in a cache or atomically in Redis."
 readme = "README.md"
 authors = [
@@ -22,8 +22,8 @@ classifiers = [
 ]
 dependencies = [
     "typing-extensions>=4.4",
-    "xtr-clock>=4.0,<5",
-    "xtr-event-dispatcher-contracts>=4.0,<5",
+    "xtr-clock>=5.0,<6",
+    "xtr-event-dispatcher-contracts>=5.0,<6",
 ]
 
 [project.optional-dependencies]
@@ -50,11 +50,11 @@ dev = [
     "ty>=0.0.83",
     "redis>=5.0",
     "fakeredis[lua]>=2.38.0",
-    "xtr-cache>=4.0,<5",
-    "xtr-cache-contracts>=4.0,<5",
-    "xtr-dependency-injection>=4.0,<5",
-    "xtr-lock>=4.0,<5",
-    "xtr-service-contracts>=4.0,<5",
+    "xtr-cache>=5.0,<6",
+    "xtr-cache-contracts>=5.0,<6",
+    "xtr-dependency-injection>=5.0,<6",
+    "xtr-lock>=5.0,<6",
+    "xtr-service-contracts>=5.0,<6",
 ]
 
 [build-system]
