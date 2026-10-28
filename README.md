@@ -203,21 +203,23 @@ removing it undoes.
   container installed beside it, never as an extra. Add `redis` to count on a Redis server.
   Install xtr-cache beside it for state shared through a cache pool, and xtr-lock for a lock
   shared between processes.
-- **Recipe** — `uv run xtr-recipes recipes:sync` does the *Activate* step below: it lists
-  `RateLimiterBundle`. There is no config file, environment or ignore line to write; it prints the
-  step to name your limiters in `config/rate_limiter.py`, which a recipe cannot make for you.
-- **Activate** — `RateLimiterBundle: {"all": True}` in `BUNDLES` in `<app>/bundles.py`,
+- **Recipe** — `uv run xtr-recipes recipes:sync` does the *Activate* and *Configure* steps below:
+  it lists `RateLimiterBundle` and writes `<app>/config/packages/rate_limiter.py` with the
+  bundle's own defaults. There is no environment or ignore line to write; it prints the step to
+  name your limiters in that file, which a recipe cannot make for you.
+- **Activate** — `RateLimiterBundle: {"all": True}` in `BUNDLES` in `<app>/config/bundles.py`,
   imported from `xtr_rate_limiter.bundle`.
 - **Brings along** — the cache bundle when xtr-cache is installed, and the lock bundle when
   xtr-lock is.
-- **Configure** — optional: with no configuration there are no limiters. Limiters go in
-  `<app>/config/rate_limiter.py`, a `@configure` function returning `RateLimiterConfig` — see
-  [Kernel / bundle](#kernel--bundle).
+- **Configure** — optional: the recipe writes `<app>/config/packages/rate_limiter.py` holding the
+  defaults, which name no limiter yet. Limiters go in that same `@configure` function returning
+  `RateLimiterConfig` — see [Kernel / bundle](#kernel--bundle).
 - **Environment** — nothing required. A storage given as `env(...)` must be set when the
   application boots: booting checks every limiter.
 - **Ignore** — nothing beyond what the cache and lock bundles write under `var/`.
-- **Remove** — drop the `BUNDLES` entry, delete `<app>/config/rate_limiter.py`, then
-  `uv remove xtr-rate-limiter`.
+- **Remove** — drop the `BUNDLES` entry; `uv run xtr-recipes recipes:remove xtr-rate-limiter`
+  deletes `<app>/config/packages/rate_limiter.py`, unless you edited it, in which case it is
+  moved aside to `rate_limiter.py.removed`. Then `uv remove xtr-rate-limiter`.
 - **Check** — `debug:bundles` shows `rate_limiter` as `listed` and `active`.
 
 ## Kernel / bundle
@@ -227,14 +229,14 @@ not a dependency, and nothing outside `xtr_rate_limiter.bundle` needs it — lis
 name the limiters:
 
 ```python
-# app/bundles.py
+# app/config/bundles.py
 from xtr_rate_limiter.bundle import RateLimiterBundle
 
 BUNDLES = {RateLimiterBundle: {"all": True}}
 ```
 
 ```python
-# app/config/rate_limiter.py
+# app/config/packages/rate_limiter.py
 from xtr_dependency_injection import configure, env
 
 from xtr_rate_limiter import LimiterConfig, Rate

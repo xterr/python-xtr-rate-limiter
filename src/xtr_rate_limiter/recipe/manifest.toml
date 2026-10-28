@@ -5,9 +5,11 @@
 # "<module>:<class>" = the environments it is listed with, exactly as in BUNDLES.
 "xtr_rate_limiter.bundle:RateLimiterBundle" = { all = true }
 
-# No [files]: configuring is optional. With none there are no limiters and no
-# I/O; an application naming its limiters writes config/rate_limiter.py itself,
-# which is what [notes] asks for.
+[files]
+# Destination under the application package = template under this recipe.
+# The bundle's own defaults written out — no limiter, no I/O — as the place the
+# limiters are named, as [notes] asks.
+"config/packages/rate_limiter.py" = "files/config/rate_limiter.py.tmpl"
 
 # No [env]: nothing is required. A storage an application gives as env(...)
 # must be set when it boots, because booting checks every limiter.
@@ -19,6 +21,6 @@ lines = []
 
 [notes]
 steps = [
-  "Name the limiters in config/rate_limiter.py — their type, limit and interval: with no configuration there is no limiter to ask.",
+  "Name the limiters in config/packages/rate_limiter.py — their type, limit and interval: with no configuration there is no limiter to ask.",
 ]
 check = ["<script> debug:bundles — rate_limiter is listed and active"]

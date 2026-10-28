@@ -241,21 +241,23 @@ async def test_a_sixth_login_is_refused() -> None:
 ## Use in an application
 
 `uv run xtr-recipes recipes:sync` applies the recipe shipped with this package: it lists
-`RateLimiterBundle`. That is the steps below a recipe can do; the step to name your limiters it
-prints for you to make.
+`RateLimiterBundle` and writes `<app>/config/packages/rate_limiter.py` with the bundle's own
+defaults. That is the steps below a recipe can do; the step to name your limiters it prints for
+you to make.
 
 1. **Install** — `uv add xtr-rate-limiter xtr-dependency-injection`: the bundle needs the
    container installed beside it, never as an extra. Add `redis` to count on a server. Install
    xtr-cache beside it for state in a cache pool, and xtr-lock for a lock shared between
    processes.
-2. **Activate** — `RateLimiterBundle: {"all": True}` in `BUNDLES` in `<app>/bundles.py`
+2. **Activate** — `RateLimiterBundle: {"all": True}` in `BUNDLES` in `<app>/config/bundles.py`
    (`from xtr_rate_limiter.bundle import RateLimiterBundle`).
 3. **Brings along** — the cache bundle when xtr-cache is installed, the lock bundle when
    xtr-lock is.
-4. **Configure** — optional, but with no configuration there are no limiters:
+4. **Configure** — the recipe writes `<app>/config/packages/rate_limiter.py` holding the
+   defaults, which name no limiter yet, and that is where limiters go:
 
    ```python
-   # <app>/config/rate_limiter.py
+   # <app>/config/packages/rate_limiter.py
    from xtr_dependency_injection import configure, env
    from xtr_rate_limiter import LimiterConfig, Rate
    from xtr_rate_limiter.bundle import RateLimiterConfig
@@ -298,8 +300,9 @@ prints for you to make.
    ```
 
 7. **Check** — `debug:bundles` shows `rate_limiter` as `listed` and `active`.
-8. **Remove** — drop the `BUNDLES` entry, delete `<app>/config/rate_limiter.py`, then
-   `uv remove xtr-rate-limiter`.
+8. **Remove** — drop the `BUNDLES` entry; `uv run xtr-recipes recipes:remove xtr-rate-limiter`
+   deletes `<app>/config/packages/rate_limiter.py`, unless you edited it, in which case it is
+   moved aside to `rate_limiter.py.removed`. Then `uv remove xtr-rate-limiter`.
 
 ## Errors
 

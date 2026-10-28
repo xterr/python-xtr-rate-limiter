@@ -1,0 +1,32 @@
+"""The rate limiters, by name.
+
+There is no limiter until one is named here; each is asked for by its name.
+
+```python
+RateLimiterConfig(
+    limiters={
+        "api": LimiterConfig("sliding_window", limit=100, interval="1 minute"),
+        "login": LimiterConfig(
+            "fixed_window", limit=5, interval="15 minutes", storage=env("REDIS_DSN")
+        ),
+        "uploads": LimiterConfig("token_bucket", limit=10, rate=Rate("1 minute", amount=2)),
+    },
+)
+```
+"""
+
+from __future__ import annotations
+
+from xtr_dependency_injection import configure
+from xtr_rate_limiter.bundle import RateLimiterConfig
+
+__all__ = ["rate_limiter"]
+
+
+@configure
+def rate_limiter() -> RateLimiterConfig:
+    """No limiter yet."""
+    # A limiter counts in the cache unless its storage is set: a Redis DSN shares the count
+    # between processes. Give redis_prefix a value of its own when two applications share one
+    # Redis server.
+    return RateLimiterConfig()
