@@ -54,20 +54,14 @@ class StoredLimiter(LimiterInterface, metaclass=ABCMeta):
     @override
     async def reset(self) -> None:
         """Forget every hit counted for this key."""
-        _ = await self._lock.acquire(blocking=True)
-        try:
+        async with self._lock.hold():
             await self._storage.delete(self._id)
-        finally:
-            await self._lock.release()
 
     @override
     async def reserve(self, tokens: int = 1, max_time: float | None = None) -> Reservation:
         """Book ``tokens`` under the lock on this limiter's id."""
-        _ = await self._lock.acquire(blocking=True)
-        try:
+        async with self._lock.hold():
             return await self._reserve(tokens, max_time)
-        finally:
-            await self._lock.release()
 
     @abstractmethod
     async def _reserve(self, tokens: int, max_time: float | None) -> Reservation:
