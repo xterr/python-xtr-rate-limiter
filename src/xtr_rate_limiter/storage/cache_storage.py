@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from typing import TYPE_CHECKING, Final, final
-
-from typing_extensions import override
+from typing import TYPE_CHECKING, Final, final, override
 
 from xtr_rate_limiter._time import instant
 from xtr_rate_limiter.limiter_state_interface import LimiterStateInterface

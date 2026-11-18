@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Final, Literal, TypeAlias, get_args
+from typing import TYPE_CHECKING, Final, Literal, get_args
 
 from ._interval import Interval, IntervalLike
 from .exception import InvalidArgumentError
@@ -25,9 +25,7 @@ __all__ = [
     "Policy",
 ]
 
-Policy: TypeAlias = Literal[
-    "fixed_window", "sliding_window", "token_bucket", "no_limit", "compound"
-]
+type Policy = Literal["fixed_window", "sliding_window", "token_bucket", "no_limit", "compound"]
 """How a limiter counts hits."""
 
 CACHE_STORAGE: Final = "cache"
@@ -42,7 +40,7 @@ DEFAULT_CACHE_POOL: Final = "rate_limiter"
 AUTO_LOCK: Final = "auto"
 """Lock through the lock bundle's default factory when active; within this process otherwise."""
 
-_POLICIES: Final = frozenset(get_args(Policy))
+_POLICIES: Final = frozenset(get_args(Policy.__value__))  # pyright: ignore[reportAny] — an alias's value is untyped
 _WINDOWS: Final = frozenset({"fixed_window", "sliding_window"})
 _UNLIMITED: Final = frozenset({"no_limit", "compound"})
 

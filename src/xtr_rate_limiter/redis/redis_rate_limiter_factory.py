@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Final, cast, final
+from typing import TYPE_CHECKING, Final, cast, final, override
 
-from typing_extensions import override
 from xtr_clock import Clock
 
 from xtr_rate_limiter._state_id import state_id

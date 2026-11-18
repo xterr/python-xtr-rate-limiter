@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast, final
+from typing import TYPE_CHECKING, cast, final, override
 
-from typing_extensions import override
 from xtr_clock import Clock
 
 from ._lock import lock_for

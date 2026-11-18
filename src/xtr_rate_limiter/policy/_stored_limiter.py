@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, ClassVar
-
-from typing_extensions import override
+from typing import TYPE_CHECKING, ClassVar, override
 
 from xtr_rate_limiter.exception import InvalidArgumentError, MaxWaitDurationExceededError
 from xtr_rate_limiter.limiter_interface import LimiterInterface

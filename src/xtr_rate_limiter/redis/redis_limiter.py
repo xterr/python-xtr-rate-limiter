@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, final
-
-from typing_extensions import override
+from typing import TYPE_CHECKING, final, override
 
 from xtr_rate_limiter._time import instant
 from xtr_rate_limiter.exception import InvalidArgumentError, MaxWaitDurationExceededError

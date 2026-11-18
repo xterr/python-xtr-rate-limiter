@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, ClassVar, final
+from typing import TYPE_CHECKING, ClassVar, final, override
 
-from typing_extensions import override
 from xtr_clock import Clock
 
 from xtr_rate_limiter._time import instant

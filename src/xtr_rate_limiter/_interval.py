@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Final, TypeAlias, final
+from typing import Final, final
 
 from xtr_clock import shift_calendar
 
@@ -20,7 +20,7 @@ from xtr_rate_limiter.exception import InvalidIntervalError
 
 __all__ = ["Interval", "IntervalLike"]
 
-IntervalLike: TypeAlias = str | timedelta
+type IntervalLike = str | timedelta
 """An interval as it is written: ``"15 minutes"``, ``"1 hour 30 minutes"``, or a duration."""
 
 _TERM: Final = re.compile(

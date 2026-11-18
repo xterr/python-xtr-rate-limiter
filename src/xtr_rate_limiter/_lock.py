@@ -77,7 +77,7 @@ class LocalLock:
         self._resource = resource
 
     @asynccontextmanager
-    async def hold(self) -> AsyncGenerator[None, None]:
+    async def hold(self) -> AsyncGenerator[None]:
         """Wait for the tasks of this process holding the id, then hold it."""
         async with _local_lock(self._resource):
             yield
@@ -103,7 +103,7 @@ class SharedLock:
         self._local = LocalLock(resource)
 
     @asynccontextmanager
-    async def hold(self) -> AsyncGenerator[None, None]:
+    async def hold(self) -> AsyncGenerator[None]:
         """Hold the id within this process, then in the factory's store."""
         async with self._local.hold():
             lock = self._lock_factory.create_lock(self._resource)

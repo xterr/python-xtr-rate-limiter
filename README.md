@@ -4,7 +4,7 @@
 
 **Limits on how often anything may happen — calls, jobs, logins — by fixed window, sliding window or token bucket, kept in memory, in a cache or atomically in Redis.**
 
-<img alt="python 3.11+" src="https://img.shields.io/badge/python-%E2%89%A5%203.11-3776AB?logo=python&logoColor=white">
+<img alt="python 3.14+" src="https://img.shields.io/badge/python-%E2%89%A5%203.14-3776AB?logo=python&logoColor=white">
 <img alt="typed" src="https://img.shields.io/badge/typed-ty%20%2B%20basedpyright-1f6feb">
 <img alt="license MIT" src="https://img.shields.io/badge/license-MIT-blue">
 
@@ -37,7 +37,7 @@ uv add xtr-cache                                  # beside it: state kept in a c
 uv add xtr-lock                                   # beside it: a lock shared between processes
 ```
 
-Requires Python 3.11+. Depends on `typing-extensions`, `xtr-clock` and
+Requires Python 3.14.4+. Depends on `xtr-clock` and
 `xtr-event-dispatcher-contracts`. What else it works with is installed beside it, never as an
 extra, and the limiters run without any of it:
 
